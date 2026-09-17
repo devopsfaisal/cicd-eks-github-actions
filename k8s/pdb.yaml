@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: eks-demo-app-pdb
+  namespace: production
+  labels:
+    app: eks-demo-app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: eks-demo-app

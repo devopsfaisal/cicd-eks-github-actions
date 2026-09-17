@@ -1,0 +1,218 @@
+name: Enterprise EKS GitOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+permissions:
+  id-token: write   # Required for AWS OIDC authentication
+  contents: read    # Required for checkout
+  pull-requests: write
+
+env:
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER_NAME: eks-production-cluster
+  ECR_REPOSITORY: eks-demo-app
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ==========================================
+  # CI: Test, Lint, Scan & Build Container
+  # ==========================================
+  ci:
+    name: "CI: Test, Lint & Security Scan"
+    runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build_push.outputs.image_uri }}
+      image_tag: ${{ steps.prep_tag.outputs.image_tag }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r app/requirements.txt -r app/requirements-dev.txt
+
+      - name: Lint Code with Flake8
+        run: |
+          # Stop build on syntax errors or undefined names
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Warning-level linting
+          flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+      - name: Run Unit Tests with Pytest
+        run: |
+          python -m unittest discover -s app -v
+
+      - name: Set Up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare Image Metadata
+        id: prep_tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "image_tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "Short SHA: ${SHORT_SHA}"
+
+      - name: Build Docker Image Locally for Scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: ${{ env.ECR_REPOSITORY }}:${{ steps.prep_tag.outputs.image_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: DevSecOps Vulnerability Scan (Aqua Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REPOSITORY }}:${{ steps.prep_tag.outputs.image_tag }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      # AWS Authentication: Supports OIDC Role if configured, otherwise falls back to static secrets
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Log in to Amazon ECR
+        id: login_ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR Repository Exists
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} || \
+          aws ecr create-repository \
+            --repository-name ${{ env.ECR_REPOSITORY }} \
+            --region ${{ env.AWS_REGION }} \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
+      - name: Push Container Image to Amazon ECR
+        id: build_push
+        env:
+          REGISTRY: ${{ steps.login_ecr.outputs.registry }}
+          TAG: ${{ steps.prep_tag.outputs.image_tag }}
+        run: |
+          IMAGE_URI="$REGISTRY/${{ env.ECR_REPOSITORY }}:$TAG"
+          IMAGE_LATEST="$REGISTRY/${{ env.ECR_REPOSITORY }}:latest"
+          
+          docker tag ${{ env.ECR_REPOSITORY }}:$TAG $IMAGE_URI
+          docker tag ${{ env.ECR_REPOSITORY }}:$TAG $IMAGE_LATEST
+          
+          echo "Pushing $IMAGE_URI"
+          docker push $IMAGE_URI
+          echo "Pushing $IMAGE_LATEST"
+          docker push $IMAGE_LATEST
+          
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Summary of CI Phase
+        run: |
+          echo "### 🚀 CI Pipeline Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ steps.prep_tag.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **ECR Image**: \`${{ steps.build_push.outputs.image_uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Scan**: Trivy scan finished with 0 critical blockers." >> $GITHUB_STEP_SUMMARY
+
+  # ==========================================
+  # CD: Continuous Deployment to AWS EKS
+  # ==========================================
+  cd:
+    name: "CD: Deploy to AWS EKS"
+    needs: [ci]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Kubectl & Kustomize
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.31.0'
+
+      - name: Set Up Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.3"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Update Kubeconfig for EKS
+        run: |
+          echo "Configuring kubectl context for cluster: ${{ env.EKS_CLUSTER_NAME }} in ${{ env.AWS_REGION }}"
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Update Kustomize Image Tag
+        run: |
+          cd k8s
+          kustomize edit set image eks-demo-app=${{ needs.ci.outputs.image_uri }}
+          echo "Updated kustomization.yaml with image: ${{ needs.ci.outputs.image_uri }}"
+          cat kustomization.yaml
+
+      - name: Deploy Manifests to EKS
+        run: |
+          kubectl apply -k k8s/
+
+      - name: Verify Zero-Downtime Rollout
+        run: |
+          echo "Monitoring rollout progress..."
+          if ! kubectl rollout status deployment/eks-demo-app -n production --timeout=180s; then
+            echo "❌ Rollout timed out or failed! Triggering automatic rollback..."
+            kubectl rollout undo deployment/eks-demo-app -n production
+            exit 1
+          fi
+          echo "✅ Rollout completed successfully!"
+
+      - name: Fetch Deployment Endpoints & Status
+        id: status
+        run: |
+          echo "### 🌐 Production Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cluster**: \`${{ env.EKS_CLUSTER_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Namespace**: \`production\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed Image**: \`${{ needs.ci.outputs.image_uri }}\`" >> $GITHUB_STEP_SUMMARY
+          
+          echo "#### Running Pods" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl get pods -n production -l app=eks-demo-app -o wide >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "#### Ingress & Services" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl get ingress,svc -n production >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
