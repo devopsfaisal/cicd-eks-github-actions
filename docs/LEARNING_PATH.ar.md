@@ -7,7 +7,7 @@
 > **السحابة المستهدفة**: AWS (`ap-south-1` مومباي)  
 > **إدارة الحاويات**: Kubernetes على AWS EKS (`1.36+`)  
 > **نمط خط الإنتاج**: GitOps مع حماية DevSecOps (Aqua Trivy) واسترجاع تلقائي بدون توقف  
-> **نقطة النهاية العامة**: موازن الأحمال المرن من أمازون (AWS Elastic Load Balancer)
+> **نقطة النهاية العامة الموثقة**: [https://eks.faisal.host](https://eks.faisal.host) (AWS ELB + تشفير ACM SSL/TLS)
 
 ---
 

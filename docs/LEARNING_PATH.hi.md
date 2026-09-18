@@ -7,7 +7,7 @@
 > **Target Cloud**: AWS (`ap-south-1` Mumbai)  
 > **Orchestration**: Kubernetes on AWS EKS (`1.36+`)  
 > **Pipeline Pattern**: Zero-Downtime GitOps with Aqua Trivy DevSecOps & Automated Rollback  
-> **Public Endpoint**: AWS Elastic Load Balancer (ELB)
+> **Public Endpoint**: [https://eks.faisal.host](https://eks.faisal.host) (AWS ELB + ACM SSL/TLS)
 
 ---
 

@@ -9,11 +9,18 @@ metadata:
     app.kubernetes.io/managed-by: github-actions
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:ap-south-1:461195385728:certificate/0e4baff3-fb10-4ff4-971b-1941faf099cf"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "https"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
 spec:
   type: LoadBalancer
   ports:
     - name: http
       port: 80
+      targetPort: 8080
+      protocol: TCP
+    - name: https
+      port: 443
       targetPort: 8080
       protocol: TCP
   selector:

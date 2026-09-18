@@ -1,8 +1,10 @@
 # 🚀 Enterprise EKS GitOps CI/CD Pipeline
 
+[![Live HTTPS Endpoint](https://img.shields.io/badge/Live%20HTTPS-eks.faisal.host-00e676?style=for-the-badge&logo=google-chrome&logoColor=white)](https://eks.faisal.host)
 ![CI/CD Status](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue?logo=github-actions&style=for-the-badge)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-1.31-326ce5?logo=kubernetes&style=for-the-badge)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36+-326ce5?logo=kubernetes&style=for-the-badge)
 ![AWS EKS](https://img.shields.io/badge/AWS-EKS%20Mumbai%20(ap--south--1)-ff9900?logo=amazon-aws&style=for-the-badge)
+![SSL / TLS](https://img.shields.io/badge/SSL%2FTLS-AWS%20ACM%20Verified-brightgreen?style=for-the-badge)
 ![DevSecOps](https://img.shields.io/badge/Security-Aqua%20Trivy-00C7B7?logo=aqua&style=for-the-badge)
 ![Docker](https://img.shields.io/badge/Docker-Multi--stage%20Rootless-2496ed?logo=docker&style=for-the-badge)
 
