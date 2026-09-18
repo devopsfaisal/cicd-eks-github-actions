@@ -10,6 +10,9 @@ A production-grade **Cloud Native Microservice** and automated **GitOps CI/CD Pi
 
 Companion Infrastructure Repository: **[terraform-aws-eks-production](https://github.com/devopsfaisal/terraform-aws-eks-production)**
 
+> 🌐 **Interactive Learning Paths / مبدّل اللغات / भाषा चुनें**:  
+> [🇬🇧 English Guide](docs/LEARNING_PATH.md) • [🇮🇳 Hinglish गाइड (सरल भाषा)](docs/LEARNING_PATH.hi.md) • [🇸🇦 الدليل العربي الكامل](docs/LEARNING_PATH.ar.md)
+
 ---
 
 ## 🏗️ Architecture & Pipeline Flow
@@ -121,5 +124,8 @@ open http://localhost:8080
 ---
 
 ## 📚 In-Depth Learning & Interview Prep
-For comprehensive architectural deep dives and the **Top 15 Real-World DevOps / SRE EKS CI/CD Interview Questions & Answers**, see:
-👉 **[PIPELINE_ARCHITECTURE.md](docs/PIPELINE_ARCHITECTURE.md)**
+For comprehensive architectural deep dives and the **Top 15 Real-World DevOps / SRE EKS CI/CD Interview Questions & Answers**, read our interactive learning paths:
+- 🇬🇧 **[English Master Guide](docs/LEARNING_PATH.md)**
+- 🇮🇳 **[Hinglish Mastery Path (सरल भाषा)](docs/LEARNING_PATH.hi.md)**
+- 🇸🇦 **[الدليل العربي الشامل للمؤسسات](docs/LEARNING_PATH.ar.md)**
+- 🏛️ **[Pipeline Architecture Specification](docs/PIPELINE_ARCHITECTURE.md)**

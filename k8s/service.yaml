@@ -7,8 +7,10 @@ metadata:
     app: eks-demo-app
     app.kubernetes.io/name: eks-demo-app
     app.kubernetes.io/managed-by: github-actions
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   ports:
     - name: http
       port: 80
